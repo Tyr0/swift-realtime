@@ -18,14 +18,25 @@ let package = Package(
             targets: ["Realtime"],
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/Tyr0/swift-streams.git", from: "1.0.0"),
+    ],
     targets: [
         .target(
             name: "Realtime",
+        ),
+        .target(
+            name: "Realtime_Streams",
+            dependencies: [
+                "Realtime",
+                .product(name: "Streams", package: "swift-streams"),
+            ],
         ),
         .testTarget(
             name: "RealtimeTests",
             dependencies: [
                 "Realtime",
+                "Realtime_Streams",
             ],
         ),
     ],

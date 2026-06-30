@@ -1,5 +1,5 @@
 
-internal import Synchronization
+package import Synchronization
 
 /// A fixed-capacity, lock-free FIFO queue for a single producer and a single
 /// consumer (SPSC).
@@ -27,13 +27,13 @@ internal import Synchronization
 ///   ``dequeue()`` from more than one thread concurrently, is a data race.
 public struct InlineRingBuffer<let storageCapacity: Int, Element>: ~Copyable where Element: BitwiseCopyable {
 
-    private typealias Index = Storage.Index
+    package typealias Index = Storage.Index
 
-    private struct Storage: ~Copyable, Sendable {
+    package struct Storage: ~Copyable, Sendable {
 
-        typealias Elements = InlineArray<storageCapacity, Element>
+        package typealias Elements = InlineArray<storageCapacity, Element>
 
-        typealias Index = Elements.Index
+        package typealias Index = Elements.Index
 
         // MARK: - Properties
 
@@ -57,17 +57,26 @@ public struct InlineRingBuffer<let storageCapacity: Int, Element>: ~Copyable whe
 
         // MARK: - Accessor Functions
 
-        borrowing func withUnsafeMutablePointer<Error, Result>(_ body: (UnsafeMutablePointer<Element>) throws(Error) -> Result) throws(Error) -> Result {
-            return try withUnsafePointer(to: self) { unsafePointer throws(Error) -> Result in
-                let unsafeMutablePointer = UnsafeMutableRawPointer(mutating: unsafePointer).assumingMemoryBound(to: Element.self)
-                return try body(unsafeMutablePointer)
+        @inlinable
+        package borrowing func withUnsafePointer<Error, Result>(_ body: (UnsafePointer<Element>) throws(Error) -> Result) throws(Error) -> Result {
+            return try Swift.withUnsafePointer(to: self) { unsafePointer throws(Error) -> Result in
+                let unsafeRawPointer = UnsafeRawPointer(unsafePointer)
+                return try body(unsafeRawPointer.assumingMemoryBound(to: Element.self))
+            }
+        }
+
+        @inlinable
+        package borrowing func withUnsafeMutablePointer<Error, Result>(_ body: (UnsafeMutablePointer<Element>) throws(Error) -> Result) throws(Error) -> Result {
+            return try Swift.withUnsafePointer(to: self) { unsafePointer throws(Error) -> Result in
+                let unsafeMutableRawPointer = UnsafeMutableRawPointer(mutating: unsafePointer)
+                return try body(unsafeMutableRawPointer.assumingMemoryBound(to: Element.self))
             }
         }
     }
 
     // MARK: - Properties
 
-    private static var capacity: Int {
+    package static var capacity: Int {
         return Self.storageCapacity - 1
     }
 
@@ -102,11 +111,11 @@ public struct InlineRingBuffer<let storageCapacity: Int, Element>: ~Copyable whe
         return Self.isEmpty(readIndex: readIndex, writeIndex: writeIndex)
     }
 
-    private var storage: Storage
+    package var storage: Storage
 
-    private let readIndex: Atomic<Index>
+    package let readIndex: Atomic<Index>
 
-    private let writeIndex: Atomic<Index>
+    package let writeIndex: Atomic<Index>
 
     // MARK: - Lifecycle Functions
 
@@ -188,13 +197,13 @@ public struct InlineRingBuffer<let storageCapacity: Int, Element>: ~Copyable whe
         }
     }
 
-    // MARK: - Private Static Functions
+    // MARK: - Package Static Functions
 
     private static func isEmpty(readIndex: Index, writeIndex: Index) -> Bool {
         return readIndex == writeIndex
     }
 
-    private static func readAvailable(readIndex: Index, writeIndex: Index) -> Index.Stride {
+    package static func readAvailable(readIndex: Index, writeIndex: Index) -> Index.Stride {
         if readIndex <= writeIndex {
             return writeIndex - readIndex
         } else {
@@ -202,11 +211,31 @@ public struct InlineRingBuffer<let storageCapacity: Int, Element>: ~Copyable whe
         }
     }
 
-    private static func index(after index: Index) -> Index {
+    package static func writeAvailable(readIndex: Index, writeIndex: Index) -> Index.Stride {
+        if readIndex <= writeIndex {
+            return Self.storageCapacity + readIndex - writeIndex - 1
+        } else {
+            return readIndex - writeIndex - 1
+        }
+    }
+
+    package static func index(after index: Index) -> Index {
         let nextIndex = index.advanced(by: 1)
 
         if _slowPath(nextIndex == Self.storageCapacity) {
             return 0
+        } else {
+            return nextIndex
+        }
+    }
+
+    package static func index(_ index: Index, advancedBy distance: Index.Stride) -> Index {
+        precondition(distance < Self.storageCapacity)
+
+        let nextIndex = index.advanced(by: distance)
+
+        if _slowPath(Self.storageCapacity <= nextIndex) {
+            return nextIndex - Self.storageCapacity
         } else {
             return nextIndex
         }
