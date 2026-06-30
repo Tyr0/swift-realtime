@@ -17,6 +17,10 @@ let package = Package(
             name: "Realtime",
             targets: ["Realtime"],
         ),
+        .library(
+            name: "Realtime_Streams",
+            targets: ["Realtime_Streams"],
+        ),
     ],
     dependencies: [
         .package(url: "https://github.com/Tyr0/swift-streams.git", from: "1.0.0"),
